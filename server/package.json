@@ -1,0 +1,29 @@
+{
+  "name": "filemind-server",
+  "version": "1.0.0",
+  "description": "FileMind - AI-Powered Document Q&A System Backend",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "worker": "node src/workers/pdfWorker.js",
+    "worker:dev": "nodemon src/workers/pdfWorker.js"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.24.0",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.3.1",
+    "helmet": "^7.1.0",
+    "ioredis": "^5.4.1",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.5.1",
+    "multer": "^1.4.5-lts.1",
+    "pdf-parse": "^1.1.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}
