@@ -1,107 +1,88 @@
-# FileMind – AI-Powered Document Q&A System
+# FileMind - AI Document Q&A
 
-FileMind is a production-ready, full-stack RAG (Retrieval-Augmented Generation) application designed to process uploaded PDF documents asynchronously, extract semantic chunks, generate vector embeddings using Google Gemini (`gemini-embedding-001`), store vectors in MongoDB, and answer queries strictly without hallucination using `gemini-2.5-flash` with Server-Sent Events (SSE) streaming responses.
+FileMind lets users upload PDF documents and ask questions about their content. It uses React for the interface, Node.js and Express for the API, MongoDB for data, Redis for background jobs, and Google Gemini for embeddings, summaries, and answers.
 
----
+## Main Features
 
-## Architecture Overview
+- User registration and login with JWT authentication
+- PDF upload and background processing
+- Text extraction and overlapping text chunks
+- Gemini embeddings stored in MongoDB
+- Similarity search to find relevant document content
+- AI answers based on uploaded documents
+- Streaming chat responses with Server-Sent Events (SSE)
+- Document summaries, chat history, and document search
 
-```
-+------------------+         +------------------+
-| React 18 + Vite  | <-----> | Node.js Express  |
-| Tailwind CSS UI  |   SSE   | API Gateway      |
-+------------------+         +--------+---------+
-                                      |
-                     +----------------+----------------+
-                     |                                 |
-           +---------v--------+              +---------v--------+
-           | MongoDB Database |              | Redis BRPOP Queue|
-           | Chunks & Vectors |              +---------+--------+
-           +------------------+                        |
-                                             +---------v--------+
-                                             | Standalone Worker|
-                                             | pdf-parse & Embed|
-                                             +---------+--------+
-                                                       |
-                                             +---------v--------+
-                                             | Google Gemini    |
-                                             | API Platform     |
-                                             +------------------+
-```
+## How FileMind Works
 
----
+### PDF upload flow
 
-## Key Features
-
-- **JWT Authentication**: Register, Login, Token persistence, and Protected workspace routes.
-- **Asynchronous PDF Processing**: PDF text extraction via `pdf-parse`, chunking into 1000-character segments with 200-character overlap.
-- **Redis Worker Queue**: Background worker using `BRPOP` blocking queue for fault-tolerant document processing and restart resilience.
-- **Vector Search Engine**: Cosine similarity calculations on MongoDB chunks with a strict 0.70 threshold.
-- **Strict Hallucination Prevention**: Prevents AI from fabricating facts. If retrieved context is insufficient, returns `"I couldn't find relevant information in your uploaded document."`
-- **Server-Sent Events (SSE)**: Real-time token streaming for Q&A responses using `gemini-2.5-flash`.
-- **Rich Interactive UI**: Modern dark theme glassmorphism with Framer Motion, Toast notifications, Markdown rendering, Export chat to PDF, and Multi-Document Context selection.
-
----
-
-## Folder Structure
-
-```
-FileMind/
-├── client/                     # Vite + React 18 Frontend
-│   ├── src/
-│   │   ├── components/         # Reusable UI components
-│   │   ├── context/            # Auth & Theme Context providers
-│   │   ├── layouts/            # Dashboard Sidebar Layout
-│   │   ├── pages/              # Dashboard, Upload, Documents, Chat, Profile, Settings
-│   │   ├── services/           # Axios API services
-│   │   ├── App.jsx             # React Router setup
-│   │   ├── main.jsx            # Entry point
-│   │   └── index.css           # Tailwind custom styles & glassmorphism
-│   ├── package.json
-│   ├── vite.config.js
-│   └── Dockerfile
-├── server/                     # Express.js Backend & Redis Worker
-│   ├── src/
-│   │   ├── config/             # DB (Mongoose), Redis, Gemini config
-│   │   ├── controllers/        # Auth, Document, Chat controllers
-│   │   ├── middleware/         # Auth JWT, Multer Upload, Rate limiting, Errors
-│   │   ├── models/             # User, Document, Chunk, Conversation, Message
-│   │   ├── queue/              # Redis LPUSH / BRPOP queue manager
-│   │   ├── routes/             # Express API routes
-│   │   ├── services/           # PDF parsing, Gemini embedding, RAG similarity engine
-│   │   ├── workers/            # Independent Redis BRPOP background worker
-│   │   └── index.js            # Express server entry point
-│   ├── uploads/                # Local PDF storage directory
-│   ├── package.json
-│   ├── .env.example
-│   └── Dockerfile
-├── docker-compose.yml          # Multi-container Docker orchestration
-└── README.md
+```mermaid
+flowchart TD
+    A[1. User uploads a PDF] --> B[2. Backend saves the PDF]
+    B --> C[3. Backend creates a processing job]
+    C --> D[4. Redis holds the job]
+    D --> E[5. Background worker picks up the job]
+    E --> F[6. Extract text and create chunks]
+    F --> G[7. Gemini creates embeddings]
+    G --> H[8. MongoDB stores chunks and embeddings]
+    H --> I[9. Document is ready for questions]
 ```
 
----
+In simple terms:
 
-## Quick Start & Installation
+1. The React frontend sends the PDF to the Express backend.
+2. The backend saves the file and puts a job in Redis.
+3. Redis holds the job until the background worker is ready.
+4. The worker extracts the PDF text and splits it into smaller chunks.
+5. Gemini converts every chunk into a numerical vector called an embedding.
+6. MongoDB stores the text chunks and their embeddings.
+7. The document status changes from `Pending` to `Processing` and then to `Completed`.
+
+### Question and answer flow
+
+```mermaid
+flowchart TD
+    A[1. User asks a question] --> B[2. Backend receives the question]
+    B --> C[3. Gemini creates a question embedding]
+    C --> D[4. Compare it with stored embeddings]
+    D --> E[5. Select the most relevant chunks]
+    E --> F[6. Send chunks and question to Gemini]
+    F --> G[7. Gemini generates the answer]
+    G --> H[8. Backend streams the answer using SSE]
+    H --> I[9. React displays the answer]
+```
+
+FileMind first finds relevant information in the user's documents and then sends that context to Gemini. If relevant information cannot be found, the application returns a fallback message instead of making up an answer.
+
+### What each part does
+
+| Part | Purpose |
+| --- | --- |
+| React and Vite | Displays the application and sends requests |
+| Express and Node.js | Handles users, uploads, documents, and chat |
+| Redis | Holds PDF processing jobs and job statuses |
+| Background worker | Extracts text and creates embeddings |
+| MongoDB | Stores users, documents, chunks, embeddings, and chats |
+| Google Gemini | Creates embeddings, summaries, and AI answers |
+
+## Quick Start
 
 ### Prerequisites
 
-- **Node.js**: v18.0.0 or higher installed.
-- **MongoDB Community Edition**: Running locally at `mongodb://127.0.0.1:27017/filemind`.
-- **Redis**: Running locally at `127.0.0.1:6379`.
+- Node.js 18 or newer
+- MongoDB running at `mongodb://127.0.0.1:27017/filemind`
+- Redis running at `127.0.0.1:6379`
+- A Google Gemini API key
 
----
-
-### Step 1: Clone & Configure Environment
+### Configure the backend
 
 ```bash
-# Navigate to the server folder
 cd server
-
-# Copy environment template
 cp .env.example .env
 ```
 
-Open `server/.env` and add your Google Gemini API Key:
+Add your Gemini API key to `server/.env`:
 
 ```env
 PORT=5001
@@ -113,97 +94,104 @@ GEMINI_API_KEY=YOUR_ACTUAL_GEMINI_API_KEY_HERE
 UPLOAD_PATH=uploads/
 ```
 
----
+### Start MongoDB and Redis
 
-### Step 2: Local Services (MongoDB & Redis)
+On macOS with Homebrew:
 
-#### Start MongoDB:
 ```bash
-# On macOS (Homebrew):
-brew services start mongodb-community@7.0
-
-# Or run direct mongod:
-mongod --config /usr/local/etc/mongod.conf
-```
-
-#### Start Redis:
-```bash
-# On macOS (Homebrew):
+brew services start mongodb-community
 brew services start redis
-
-# Or run direct redis-server:
-redis-server
 ```
 
----
+Check Redis:
 
-### Step 3: Install Dependencies & Run Server
+```bash
+redis-cli ping
+```
 
-In terminal 1 (Backend Server):
+The expected response is:
+
+```text
+PONG
+```
+
+### Start the application without Docker
+
+Use separate terminals:
+
+**Terminal 1 - backend**
+
 ```bash
 cd server
 npm install
 npm run dev
 ```
 
-In terminal 2 (Redis Worker):
-```bash
-cd server
-npm run worker:dev
-```
+**Terminal 2 - frontend**
 
-In terminal 3 (Frontend Client):
 ```bash
 cd client
 npm install
 npm run dev
 ```
 
-Open your browser and navigate to: `http://localhost:3000`
-
----
-
-## API Documentation
-
-### Authentication
-- `POST /auth/register` - Create new user account
-- `POST /auth/login` - Authenticate and obtain JWT token
-- `GET /auth/profile` - Fetch authenticated user info & system stats
-- `PUT /auth/profile` - Update user name/password
-
-### Documents
-- `POST /documents/upload` - Upload PDF (returns HTTP 202 Accepted & queues Redis job)
-- `GET /documents` - List user documents with sorting & filtering
-- `GET /documents/:id` - Get document details & chunk metrics
-- `GET /documents/status/:id` - Polling status of background processing job
-- `GET /documents/:id/search` - Keyword search inside document chunks
-- `DELETE /documents/:id` - Cascade delete document, chunks, embeddings, and chat history
-
-### Chat & RAG Q&A
-- `POST /chat` - Stream response via Server-Sent Events (SSE) using Gemini 2.5 Flash
-- `GET /chat/history` - Fetch conversation message history
-- `DELETE /chat/history` - Clear conversation history
-
----
-
-## Docker Deployment
-
-To launch all services (MongoDB, Redis, Server, Worker, Client) in containerized environment:
+The backend starts the PDF worker automatically. If you run a separate worker process instead, use this command and do not run a second worker from the backend:
 
 ```bash
-docker-compose up --build
+cd server
+npm run worker:dev
 ```
 
----
+Open the application at:
+
+```text
+http://localhost:3000
+```
+
+## API Overview
+
+### Authentication
+
+- `POST /auth/register` - Create a user account
+- `POST /auth/login` - Log in and receive a JWT
+- `GET /auth/profile` - Get the logged-in user's profile
+- `PUT /auth/profile` - Update the profile
+
+### Documents
+
+- `POST /documents/upload` - Upload a PDF and queue processing
+- `GET /documents` - List the user's documents
+- `GET /documents/:id` - Get document details
+- `GET /documents/status/:id` - Get processing status
+- `GET /documents/:id/search` - Search inside document chunks
+- `DELETE /documents/:id` - Delete a document and related data
+
+### Chat
+
+- `POST /chat` - Ask a question and receive an SSE stream
+- `GET /chat/history` - Get chat history
+- `DELETE /chat/history` - Clear chat history
+
+## Docker
+
+Docker Compose can run the frontend, backend, worker, MongoDB, and Redis together:
+
+```bash
+docker compose up --build
+```
+
+Stop the services:
+
+```bash
+docker compose down
+```
 
 ## Troubleshooting
 
-1. **MongoDB Connection Failed**: Ensure local MongoDB daemon is running at port 27017 (`mongod` or `brew services start mongodb-community`).
-2. **Redis Connection Error**: Ensure Redis server is active on port 6379 (`redis-cli ping` should return `PONG`).
-3. **Gemini API Errors**: Verify your API key has permissions for `gemini-2.5-flash` and `gemini-embedding-001` / `text-embedding-004`.
-
----
+1. **MongoDB connection failed:** Make sure MongoDB is running on port `27017`.
+2. **Redis connection failed:** Run `redis-cli ping` and confirm that it returns `PONG`.
+3. **Gemini errors:** Check that `GEMINI_API_KEY` is present in `server/.env` and that the key has access to the required Gemini models.
 
 ## License
 
-MIT License. Designed & Built for Production RAG Workflows.
+MIT License. Designed and built for production RAG workflows.
