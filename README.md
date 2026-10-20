@@ -18,15 +18,12 @@ FileMind lets users upload PDF documents and ask questions about their content. 
 ### PDF upload flow
 
 ```mermaid
-flowchart TD
-    A[1. User uploads a PDF] --> B[2. Backend saves the PDF]
-    B --> C[3. Backend creates a processing job]
-    C --> D[4. Redis holds the job]
-    D --> E[5. Background worker picks up the job]
-    E --> F[6. Extract text and create chunks]
-    F --> G[7. Gemini creates embeddings]
-    G --> H[8. MongoDB stores chunks and embeddings]
-    H --> I[9. Document is ready for questions]
+flowchart LR
+    A[Upload PDF] --> B[Backend]
+    B --> C[Redis Queue]
+    C --> D[Worker]
+    D --> E[MongoDB]
+    E --> F[Ready to chat]
 ```
 
 In simple terms:
@@ -42,15 +39,11 @@ In simple terms:
 ### Question and answer flow
 
 ```mermaid
-flowchart TD
-    A[1. User asks a question] --> B[2. Backend receives the question]
-    B --> C[3. Gemini creates a question embedding]
-    C --> D[4. Compare it with stored embeddings]
-    D --> E[5. Select the most relevant chunks]
-    E --> F[6. Send chunks and question to Gemini]
-    F --> G[7. Gemini generates the answer]
-    G --> H[8. Backend streams the answer using SSE]
-    H --> I[9. React displays the answer]
+flowchart LR
+    A[Ask question] --> B[Find relevant chunks]
+    B --> C[Gemini]
+    C --> D[SSE stream]
+    D --> E[Answer in browser]
 ```
 
 FileMind first finds relevant information in the user's documents and then sends that context to Gemini. If relevant information cannot be found, the application returns a fallback message instead of making up an answer.
